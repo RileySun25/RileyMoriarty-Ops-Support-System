@@ -55,6 +55,8 @@ export default function PrintPage() {
   const accentColor = searchParams.get('accent') || '#1a1a2e';
   const watermarkOpacity = parseFloat(searchParams.get('watermarkOpacity') || '0.06');
 
+  const autoPrint = searchParams.get('print') !== '0';
+
   useEffect(() => {
     fetch(`/api/download/${id}?format=json`)
       .then(res => res.json())
@@ -62,10 +64,10 @@ export default function PrintPage() {
         setDoc(data);
         setTimeout(() => {
           setReady(true);
-          setTimeout(() => window.print(), 800);
+          if (autoPrint) setTimeout(() => window.print(), 800);
         }, 1500);
       });
-  }, [id]);
+  }, [id, autoPrint]);
 
   if (!doc) {
     return <div style={{ padding: 40, textAlign: 'center', fontFamily: 'sans-serif' }}>載入中...</div>;

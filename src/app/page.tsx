@@ -366,14 +366,13 @@ export default function Home() {
                         >
                           編輯
                         </Link>
-                        <a
-                          href={`/api/download/${item.id}?format=html`}
+                        <Link
+                          href={`/editor/${item.id}/print?print=0`}
                           target="_blank"
-                          rel="noopener noreferrer"
                           className="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors"
                         >
                           瀏覽
-                        </a>
+                        </Link>
                         <button
                           onClick={() => deleteHistory(item.id)}
                           className="p-2 text-slate-300 hover:text-red-500 transition-colors"
@@ -469,14 +468,13 @@ export default function Home() {
               >
                 編輯文件
               </Link>
-              <a
-                href={`/api/download/${taskId}?format=html`}
+              <Link
+                href={`/editor/${taskId}/print?print=0`}
                 target="_blank"
-                rel="noopener noreferrer"
                 className="px-8 py-3 bg-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-300 transition-colors"
               >
-                瀏覽原始文件
-              </a>
+                瀏覽文件
+              </Link>
               <button
                 onClick={handleReset}
                 className="px-8 py-3 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors"
