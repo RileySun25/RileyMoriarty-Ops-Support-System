@@ -42,7 +42,9 @@
 
 - **Automated Crawling** — Playwright Chromium auto-login (credentials / Google OAuth / manual), BFS page discovery up to 3 levels deep
 - **AI Analysis** — Claude Vision analyzes each screenshot, generating structured steps with UI element references
-- **Built-in Editor** — Edit all text, reorder sections & steps, crop/replace screenshots, drag-and-drop
+- **Built-in Editor** — Edit all text, reorder sections & steps, crop/replace screenshots, add new blank sections
+- **Multi-Image Support** — Each section supports multiple screenshots (before/after comparisons, multi-step flows), individually croppable and removable
+- **Reorder Manager** — Dedicated reorder modal with drag-and-drop, up/down, move-to-top/bottom for efficient bulk reordering
 - **Theme Customization** — 6 color presets + custom colors, text or image watermarks with adjustable opacity
 - **Cover Page Config** — Document name, subtitle, author, department, version — all customizable
 - **PDF Export** — One-click print-to-PDF with clean A4 layout, page breaks, and watermarks
@@ -173,7 +175,9 @@ MIT
 
 - **自動爬取** — Playwright Chromium 自動登入（帳密 / Google OAuth / 手動），BFS 探索最深 3 層
 - **AI 分析** — Claude Vision 分析每張截圖，產生結構化步驟與 UI 元素標註
-- **內建編輯器** — 編輯所有文字、排序區段與步驟、裁切/更換截圖、拖拉排序
+- **內建編輯器** — 編輯所有文字、排序區段與步驟、裁切/更換截圖、新增空白區段
+- **多圖片支援** — 每個區段支援多張截圖（前後對比、多步驟流程），可個別裁切與移除
+- **排序管理** — 獨立排序彈窗，支援拖曳、上下移動、置頂/置底，大量區段也能輕鬆調整
 - **主題自訂** — 6 組預設配色 + 自訂色彩，文字或圖片浮水印，透明度可調
 - **封面設定** — 文件名稱、副標題、製作人、部門、版本號，全部可自訂
 - **PDF 匯出** — 一鍵匯出 A4 格式 PDF，含分頁、浮水印
