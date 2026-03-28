@@ -14,7 +14,7 @@
 希望可以協助到那些也跟我一樣懶得做產品說明、系統教學文件的人哈哈哈哈哈哈哈哈
 
 另外，這工具的起點還有後續的優化，全部想法都是來自我，
-但所有的開發、前端後端、還有推上git甚至是寫這份說明readme的都是Claude Code。
+但所有的開發、前端後端、還有推上git甚至是寫這份說明readme的都是Claude Code與我協作的，感謝它。。
 
 # RileyMoriarty Ops Support System
 
