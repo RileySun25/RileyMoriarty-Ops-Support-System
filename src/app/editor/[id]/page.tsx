@@ -218,6 +218,7 @@ export default function EditorPage() {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [showReorder, setShowReorder] = useState(false);
   const [cropState, setCropState] = useState<CropState | null>(null);
   // Use page-load timestamp so cropped images from previous session are never cached
   const [globalCacheBust] = useState(() => Date.now());
@@ -443,6 +444,93 @@ export default function EditorPage() {
       {cropState && <CropModal imageSrc={cropState.imageSrc} onConfirm={handleCropConfirm} onCancel={() => setCropState(null)} />}
       <input ref={uploadFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
+      {/* Reorder Modal */}
+      {showReorder && doc && (() => {
+        const ReorderModal = () => {
+          const [items, setItems] = useState(doc.sections.map((s, i) => ({ id: i, title: s.title, category: s.category })));
+          const [rDragIdx, setRDragIdx] = useState<number | null>(null);
+          const [rOverIdx, setROverIdx] = useState<number | null>(null);
+
+          function applyOrder() {
+            if (!doc) return;
+            const reordered = items.map(item => doc.sections[item.id]);
+            reordered.forEach((s, i) => s.id = `section-${i}`);
+            setDoc({ ...doc, sections: reordered });
+            setShowReorder(false);
+          }
+          function move(from: number, to: number) {
+            if (to < 0 || to >= items.length) return;
+            const arr = [...items]; const [m] = arr.splice(from, 1); arr.splice(to, 0, m); setItems(arr);
+          }
+          function handleDrop(idx: number) {
+            if (rDragIdx === null || rDragIdx === idx) return;
+            move(rDragIdx, idx); setRDragIdx(null); setROverIdx(null);
+          }
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowReorder(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">排序管理</h3>
+                    <p className="text-sm text-slate-400">拖曳或使用按鈕調整區段順序</p>
+                  </div>
+                  <button onClick={() => setShowReorder(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-auto p-4 space-y-1">
+                  {items.map((item, idx) => (
+                    <div key={item.id} draggable
+                      onDragStart={() => setRDragIdx(idx)}
+                      onDragOver={e => { e.preventDefault(); setROverIdx(idx); }}
+                      onDrop={() => handleDrop(idx)}
+                      onDragEnd={() => { setRDragIdx(null); setROverIdx(null); }}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+                        rOverIdx === idx && rDragIdx !== idx ? 'border-blue-400 bg-blue-50' :
+                        rDragIdx === idx ? 'opacity-40 border-slate-200' : 'border-slate-100 hover:border-slate-200 bg-white'
+                      }`}>
+                      <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
+                      </div>
+                      <span className="text-xs font-mono text-slate-400 w-6">{idx + 1}.</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: theme.primaryColor + '18', color: theme.primaryColor }}>{item.category}</span>
+                      <span className="flex-1 text-sm font-medium text-slate-700 truncate">{item.title}</span>
+                      <div className="flex items-center gap-0.5">
+                        <button onClick={() => move(idx, 0)} disabled={idx === 0}
+                          className="p-1 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-400" title="置頂">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 11l7-7 7 7M5 19h14" /></svg>
+                        </button>
+                        <button onClick={() => move(idx, idx - 1)} disabled={idx === 0}
+                          className="p-1 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-400" title="上移">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                        </button>
+                        <button onClick={() => move(idx, idx + 1)} disabled={idx === items.length - 1}
+                          className="p-1 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-400" title="下移">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <button onClick={() => move(idx, items.length - 1)} disabled={idx === items.length - 1}
+                          className="p-1 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-400" title="置底">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 13l-7 7-7-7M5 5h14" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-6 py-4 border-t flex items-center justify-between bg-white rounded-b-2xl">
+                  <p className="text-xs text-slate-400">{items.length} 個區段</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowReorder(false)} className="px-5 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">取消</button>
+                    <button onClick={applyOrder} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">套用排序</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+        return <ReorderModal />;
+      })()}
+
       {/* Top toolbar */}
       <div className="sticky top-0 z-50 bg-white border-b shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -457,6 +545,13 @@ export default function EditorPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => setShowReorder(true)}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
+              <span className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                排序
+              </span>
+            </button>
             <button onClick={() => setShowSettings(!showSettings)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showSettings ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
               <span className="flex items-center gap-1.5">
