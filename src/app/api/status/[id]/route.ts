@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { subscribe, getTask } from '@/lib/task-manager';
+import { validateTaskId } from '@/lib/validation';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -10,6 +11,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: taskId } = await params;
+
+  if (!validateTaskId(taskId)) {
+    return new Response(JSON.stringify({ error: 'Invalid task ID' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const task = getTask(taskId);
 
   // If task not in memory, check if output already exists on disk (server may have restarted)

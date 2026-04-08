@@ -1,5 +1,6 @@
 import { PageCapture, AIAnalysis, SOPDocument, SOPSection, TOCEntry } from './types';
 import { updateTask } from './task-manager';
+import { escCss, sanitizeImageSrc, sanitizeWatermarkImage } from './validation';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -111,6 +112,14 @@ interface CoverConfig {
   extraInfo?: string;
 }
 
+interface FontSizeConfig {
+  chapterTitle?: number;
+  sectionTitle?: number;
+  description?: number;
+  step?: number;
+  note?: number;
+}
+
 interface ThemeConfig {
   primaryColor?: string;
   accentColor?: string;
@@ -119,6 +128,7 @@ interface ThemeConfig {
   watermarkType?: 'text' | 'image';
   watermarkImage?: string;
   cover?: CoverConfig;
+  fontSize?: FontSizeConfig;
 }
 
 function renderHTML(doc: SOPDocument): string {
@@ -134,13 +144,19 @@ export function renderHTMLWithTheme(
   themeOverride?: ThemeConfig,
 ): string {
   const theme = themeOverride || doc.theme || {};
-  const primaryColor = theme.primaryColor || '#3b5998';
-  const accentColor = theme.accentColor || '#1a1a2e';
+  const primaryColor = escCss(theme.primaryColor || '', '#3b5998');
+  const accentColor = escCss(theme.accentColor || '', '#1a1a2e');
   const wmType = theme.watermarkType || 'text';
   const wmText = theme.watermark || '';
-  const wmImage = theme.watermarkImage || '';
-  const wmOpacity = theme.watermarkOpacity ?? 0.06;
+  const wmImage = sanitizeWatermarkImage(theme.watermarkImage || '');
+  const wmOpacity = Math.max(0.02, Math.min(0.3, theme.watermarkOpacity ?? 0.06));
   const cover = theme.cover || {};
+  const fs = theme.fontSize || {};
+  const fsChapter = fs.chapterTitle || 22;
+  const fsSection = fs.sectionTitle || 18;
+  const fsDesc = fs.description || 14;
+  const fsStep = fs.step || 14;
+  const fsNote = fs.note || 13;
 
   // Rebuild TOC from sections if not present
   const toc = doc.tableOfContents && doc.tableOfContents.length > 0
@@ -206,7 +222,7 @@ export function renderHTMLWithTheme(
       ? section.screenshots
       : (section.screenshotPath ? [section.screenshotPath] : []);
     const screenshotsHTML = imgs.map(p =>
-      `<div class="screenshot-wrapper"><img src="${p}" alt="${esc(section.title)}"></div>`
+      `<div class="screenshot-wrapper"><img src="${esc(sanitizeImageSrc(p))}" alt="${esc(section.title)}"></div>`
     ).join('\n');
 
     sectionsHTML += `
@@ -227,7 +243,7 @@ export function renderHTMLWithTheme(
   if (wmType === 'text' && wmText) {
     watermarkHTML = `<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:9999;font-size:60px;font-weight:bold;transform:rotate(-30deg);color:rgba(0,0,0,${wmOpacity})">${esc(wmText)}</div>`;
   } else if (wmType === 'image' && wmImage) {
-    const tiles = Array.from({ length: 9 }).map(() => `<img src="${wmImage}" style="width:200px;height:auto">`).join('');
+    const tiles = Array.from({ length: 9 }).map(() => `<img src="${esc(wmImage)}" style="width:200px;height:auto">`).join('');
     watermarkHTML = `<div style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:120px;opacity:${wmOpacity};transform:rotate(-20deg);overflow:hidden">${tiles}</div>`;
   }
 
@@ -365,39 +381,49 @@ export function renderHTMLWithTheme(
   }
 
   .chapter-divider h2 {
-    font-size: 22px;
+    font-size: ${fsChapter}px;
     color: ${accentColor};
     border-bottom: 3px solid ${primaryColor};
     padding-bottom: 8px;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .content-section {
     margin-bottom: 40px;
-    page-break-inside: avoid;
   }
 
   .content-section h3 {
-    font-size: 18px;
+    font-size: ${fsSection}px;
     font-weight: 700;
     color: #2c3e50;
     margin-bottom: 10px;
     padding-left: 0;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .section-desc {
     color: #555;
     margin-bottom: 16px;
-    font-size: 14px;
+    font-size: ${fsDesc}px;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   /* ===== Screenshot ===== */
   .screenshot-wrapper {
     margin: 16px 0 20px;
     text-align: center;
+    page-break-inside: avoid;
   }
 
   .screenshot-wrapper img {
     max-width: 100%;
+    max-height: 500px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
     border: 1px solid #ddd;
     border-radius: 4px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.06);
@@ -409,6 +435,7 @@ export function renderHTMLWithTheme(
     gap: 8px;
     margin: 10px 0;
     padding-left: 8px;
+    page-break-inside: avoid;
   }
 
   .step-letter {
@@ -420,7 +447,7 @@ export function renderHTMLWithTheme(
 
   .step-body {
     color: #333;
-    font-size: 14px;
+    font-size: ${fsStep}px;
     line-height: 1.8;
   }
 
@@ -431,20 +458,22 @@ export function renderHTMLWithTheme(
   /* ===== Notes ===== */
   .note {
     color: #555;
-    font-size: 13px;
+    font-size: ${fsNote}px;
     margin: 6px 0;
     padding-left: 8px;
+    page-break-inside: avoid;
   }
 
   .warning {
     color: #b8860b;
-    font-size: 13px;
+    font-size: ${fsNote}px;
     margin: 6px 0;
     padding-left: 8px;
     background: #fff8e1;
     padding: 8px 12px;
     border-radius: 4px;
     border-left: 3px solid #f0ad4e;
+    page-break-inside: avoid;
   }
 
   /* ===== Footer ===== */
@@ -461,9 +490,14 @@ export function renderHTMLWithTheme(
     body { background: #fff; }
     .page { box-shadow: none; margin: 0; max-width: 100%; }
     .cover { min-height: auto; padding: 80px 40px; }
-    .content-section { page-break-inside: avoid; }
-    .screenshot-wrapper { page-break-inside: avoid; }
     .chapter-divider { page-break-before: always; }
+    .chapter-divider h2 { break-after: avoid; page-break-after: avoid; }
+    .content-section h3 { break-after: avoid; page-break-after: avoid; }
+    .section-desc { break-after: avoid; page-break-after: avoid; }
+    .screenshot-wrapper { page-break-inside: avoid; }
+    .step { page-break-inside: avoid; }
+    .note { page-break-inside: avoid; }
+    .warning { page-break-inside: avoid; }
   }
 
   /* ===== Responsive ===== */

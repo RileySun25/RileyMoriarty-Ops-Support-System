@@ -1,3 +1,9 @@
+export interface DemoOperations {
+  create?: boolean;
+  edit?: boolean;
+  delete?: boolean;
+}
+
 export interface GenerateRequest {
   url: string;
   authMethod: 'none' | 'credentials' | 'gmail' | 'manual';
@@ -6,6 +12,7 @@ export interface GenerateRequest {
   maxPages?: number;
   language?: 'zh-TW' | 'zh-CN' | 'en';
   includeSubpages?: boolean;
+  demoOperations?: DemoOperations;
 }
 
 export interface PageCapture {

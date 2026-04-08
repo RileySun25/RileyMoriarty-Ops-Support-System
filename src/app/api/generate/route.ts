@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { GenerateRequest } from '@/lib/types';
 import { createTask } from '@/lib/task-manager';
 import { runSOPGeneration } from '@/lib/orchestrator';
+import { isUrlAllowed } from '@/lib/validation';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +18,11 @@ export async function POST(req: NextRequest) {
       new URL(body.url);
     } catch {
       return NextResponse.json({ error: '請提供有效的 URL 格式' }, { status: 400 });
+    }
+
+    // SSRF protection: block internal/private URLs and non-http protocols
+    if (!isUrlAllowed(body.url)) {
+      return NextResponse.json({ error: '不允許的 URL：僅支援外部 HTTP/HTTPS 網址' }, { status: 400 });
     }
 
     if (body.authMethod === 'credentials' && (!body.username || !body.password)) {

@@ -24,12 +24,15 @@ interface HistoryItem {
   sectionCount: number;
 }
 
+type CreateMode = 'auto' | 'manual';
+
 export default function Home() {
+  const [createMode, setCreateMode] = useState<CreateMode>('auto');
   const [url, setUrl] = useState('');
   const [authMethod, setAuthMethod] = useState<AuthMethod>('none');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [maxPages, setMaxPages] = useState(30);
+  const [maxPages, setMaxPages] = useState<number | ''>('');
   const [language, setLanguage] = useState('zh-TW');
   const [taskStatus, setTaskStatus] = useState<TaskStatus>('idle');
   const [taskId, setTaskId] = useState('');
@@ -37,6 +40,11 @@ export default function Home() {
   const [error, setError] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [manualTitle, setManualTitle] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [demoCreate, setDemoCreate] = useState(false);
+  const [demoEdit, setDemoEdit] = useState(false);
+  const [demoDelete, setDemoDelete] = useState(false);
 
   useEffect(() => {
     fetch('/api/history')
@@ -60,8 +68,11 @@ export default function Home() {
           authMethod,
           username: authMethod !== 'none' ? username : undefined,
           password: authMethod !== 'none' ? password : undefined,
-          maxPages,
+          maxPages: maxPages || 30,
           language,
+          demoOperations: (demoCreate || demoEdit || demoDelete)
+            ? { create: demoCreate, edit: demoEdit, delete: demoDelete }
+            : undefined,
         }),
       });
 
@@ -177,7 +188,7 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-wide">RileyMoriarty Ops Support System</h1>
             <p className="mt-2 text-blue-200 text-sm">
-              輸入目標網站 URL，自動瀏覽、擷取畫面、產生完整操作說明文件
+              自動掃描網站產生操作文件，或從零開始手動建立專業 SOP 手冊
             </p>
           </div>
           <Link
@@ -192,157 +203,325 @@ export default function Home() {
       <main className="max-w-5xl mx-auto px-6 py-10">
         {taskStatus === 'idle' && (
           <>
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* URL Input */}
-              <div className="bg-white rounded-xl shadow-sm p-8">
-                <h2 className="text-xl font-semibold text-slate-800 mb-6">目標網站設定</h2>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      網站 URL <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="https://example.com"
-                      required
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                    />
-                    <p className="mt-1 text-sm text-slate-500">
-                      請輸入要產生操作說明的系統或產品網址
-                    </p>
+            {/* Mode Selector */}
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <button
+                onClick={() => setCreateMode('auto')}
+                className={`relative p-6 rounded-xl border-2 text-left transition-all ${
+                  createMode === 'auto'
+                    ? 'border-blue-500 bg-blue-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${createMode === 'auto' ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                    <svg className={`w-6 h-6 ${createMode === 'auto' ? 'text-blue-600' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        最大頁面數
-                      </label>
-                      <input
-                        type="number"
-                        value={maxPages}
-                        onChange={(e) => setMaxPages(parseInt(e.target.value) || 30)}
-                        min={1}
-                        max={100}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        文件語言
-                      </label>
-                      <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="zh-TW">繁體中文</option>
-                        <option value="zh-CN">簡體中文</option>
-                        <option value="en">English</option>
-                      </select>
-                    </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-800">AI 自動掃描</h3>
+                    <p className="text-sm text-slate-500 mt-1">輸入網站 URL，系統自動瀏覽、截圖、AI 分析產生文件</p>
                   </div>
                 </div>
-              </div>
+                {createMode === 'auto' && <div className="absolute top-3 right-3 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div>}
+              </button>
 
-              {/* Auth Settings */}
-              <div className="bg-white rounded-xl shadow-sm p-8">
-                <h2 className="text-xl font-semibold text-slate-800 mb-6">登入設定</h2>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { value: 'none', label: '不需登入', desc: '公開網站，無需身份驗證' },
-                      { value: 'credentials', label: '帳號密碼', desc: '自動填入表單登入' },
-                      { value: 'gmail', label: 'Google 登入', desc: '自動填入 Gmail，2FA 需手動完成' },
-                      { value: 'manual', label: '手動登入', desc: '開啟瀏覽器，您自行完成登入' },
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setAuthMethod(option.value as AuthMethod)}
-                        className={`p-4 rounded-lg border-2 text-left transition-all ${
-                          authMethod === option.value
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="font-medium text-slate-800">{option.label}</div>
-                        <div className="text-sm text-slate-500">{option.desc}</div>
-                      </button>
-                    ))}
+              <button
+                onClick={() => setCreateMode('manual')}
+                className={`relative p-6 rounded-xl border-2 text-left transition-all ${
+                  createMode === 'manual'
+                    ? 'border-blue-500 bg-blue-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${createMode === 'manual' ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                    <svg className={`w-6 h-6 ${createMode === 'manual' ? 'text-blue-600' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                   </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-800">手動建立文件</h3>
+                    <p className="text-sm text-slate-500 mt-1">從空白文件開始，自行新增區段、上傳截圖、編寫步驟</p>
+                  </div>
+                </div>
+                {createMode === 'manual' && <div className="absolute top-3 right-3 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div>}
+              </button>
+            </div>
 
-                  {(authMethod === 'credentials' || authMethod === 'gmail') && (
-                    <div className="grid grid-cols-2 gap-4 mt-4 animate-fade-in">
+            {/* AUTO mode — existing URL form */}
+            {createMode === 'auto' && (
+              <>
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* URL Input */}
+                  <div className="bg-white rounded-xl shadow-sm p-8">
+                    <h2 className="text-xl font-semibold text-slate-800 mb-6">目標網站設定</h2>
+
+                    <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
-                          {authMethod === 'gmail' ? 'Gmail 帳號' : '帳號 / Email'}
+                          網站 URL <span className="text-red-500">*</span>
                         </label>
                         <input
-                          type="text"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder={authMethod === 'gmail' ? 'user@gmail.com' : '帳號或 Email'}
-                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          type="url"
+                          value={url}
+                          onChange={(e) => setUrl(e.target.value)}
+                          placeholder="https://example.com"
+                          required
+                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
                         />
+                        <p className="mt-1 text-sm text-slate-500">
+                          請輸入要產生操作說明的系統或產品網址
+                        </p>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">密碼</label>
-                        <input
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="密碼"
-                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            最大頁面數
+                          </label>
+                          <input
+                            type="number"
+                            value={maxPages}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setMaxPages(v === '' ? '' : Math.max(1, Math.min(100, parseInt(v) || 1)));
+                            }}
+                            placeholder="預設 30"
+                            min={1}
+                            max={100}
+                            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            文件語言
+                          </label>
+                          <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value)}
+                            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="zh-TW">繁體中文</option>
+                            <option value="zh-CN">簡體中文</option>
+                            <option value="en">English</option>
+                          </select>
+                        </div>
                       </div>
-                      {authMethod === 'gmail' && (
-                        <p className="col-span-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                          系統會自動填入您的 Gmail 帳號密碼。若帳號有開啟兩步驟驗證（2FA），系統會開啟瀏覽器視窗等待您手動完成驗證，之後自動繼續。
+                    </div>
+                  </div>
+
+                  {/* Auth Settings */}
+                  <div className="bg-white rounded-xl shadow-sm p-8">
+                    <h2 className="text-xl font-semibold text-slate-800 mb-6">登入設定</h2>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { value: 'none', label: '不需登入', desc: '公開網站，無需身份驗證' },
+                          { value: 'credentials', label: '帳號密碼', desc: '自動填入表單登入' },
+                          { value: 'gmail', label: 'Google 登入', desc: '自動填入 Gmail，2FA 需手動完成' },
+                          { value: 'manual', label: '手動登入', desc: '開啟瀏覽器，您自行完成登入' },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setAuthMethod(option.value as AuthMethod)}
+                            className={`p-4 rounded-lg border-2 text-left transition-all ${
+                              authMethod === option.value
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="font-medium text-slate-800">{option.label}</div>
+                            <div className="text-sm text-slate-500">{option.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+
+                      {(authMethod === 'credentials' || authMethod === 'gmail') && (
+                        <div className="grid grid-cols-2 gap-4 mt-4 animate-fade-in">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                              {authMethod === 'gmail' ? 'Gmail 帳號' : '帳號 / Email'}
+                            </label>
+                            <input
+                              type="text"
+                              value={username}
+                              onChange={(e) => setUsername(e.target.value)}
+                              placeholder={authMethod === 'gmail' ? 'user@gmail.com' : '帳號或 Email'}
+                              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">密碼</label>
+                            <input
+                              type="password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder="密碼"
+                              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          {authMethod === 'gmail' && (
+                            <p className="col-span-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                              系統會自動填入您的 Gmail 帳號密碼。若帳號有開啟兩步驟驗證（2FA），系統會開啟瀏覽器視窗等待您手動完成驗證，之後自動繼續。
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {authMethod === 'manual' && (
+                        <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg mt-4 animate-fade-in">
+                          系統會開啟一個瀏覽器視窗並導航至目標網站的登入頁面。請在該視窗中自行完成登入（支援任何登入方式，包括 2FA、LINE、Google 等），登入成功後系統會自動偵測並開始擷取。
                         </p>
                       )}
                     </div>
-                  )}
-
-                  {authMethod === 'manual' && (
-                    <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg mt-4 animate-fade-in">
-                      系統會開啟一個瀏覽器視窗並導航至目標網站的登入頁面。請在該視窗中自行完成登入（支援任何登入方式，包括 2FA、LINE、Google 等），登入成功後系統會自動偵測並開始擷取。
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Submit */}
-              <div className="flex justify-center">
-                <button
-                  type="submit"
-                  className="px-12 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all text-lg"
-                >
-                  開始產生 SOP 文件
-                </button>
-              </div>
-            </form>
-
-            {/* How it works */}
-            <div className="mt-12 grid grid-cols-4 gap-6">
-              {[
-                { step: '1', title: '輸入網址', desc: '填入目標系統的 URL 和登入資訊' },
-                { step: '2', title: '自動瀏覽', desc: '系統自動登入並瀏覽每一個功能頁面' },
-                { step: '3', title: 'AI 分析', desc: 'Claude AI 分析截圖，辨識功能並撰寫說明' },
-                { step: '4', title: '編輯匯出', desc: '線上編輯調整內容，匯出 PDF 文件' },
-              ].map((item) => (
-                <div key={item.step} className="bg-white rounded-xl p-6 shadow-sm text-center">
-                  <div className="w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mx-auto mb-3 font-bold">
-                    {item.step}
                   </div>
-                  <h3 className="font-semibold text-slate-800">{item.title}</h3>
-                  <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
+
+                  {/* Operation Demo Settings */}
+                  <div className="bg-white rounded-xl shadow-sm p-8">
+                    <h2 className="text-xl font-semibold text-slate-800 mb-2">操作示範（進階）</h2>
+                    <p className="text-sm text-slate-500 mb-5">
+                      啟用後系統會在掃描完成後，實際執行操作並逐步截圖，產生真實的操作流程說明
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { checked: demoCreate, set: setDemoCreate, label: '示範新增流程', desc: '找到新增按鈕 → 填寫表單 → 送出 → 截圖每步驟' },
+                        { checked: demoEdit, set: setDemoEdit, label: '示範編輯流程', desc: '找到編輯按鈕 → 修改資料 → 儲存 → 截圖每步驟' },
+                        { checked: demoDelete, set: setDemoDelete, label: '示範刪除流程', desc: '找到刪除按鈕 → 確認刪除 → 截圖每步驟' },
+                      ].map((opt) => (
+                        <label
+                          key={opt.label}
+                          className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            opt.checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={opt.checked}
+                            onChange={(e) => opt.set(e.target.checked)}
+                            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div>
+                            <div className="font-medium text-slate-800 text-sm">{opt.label}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+
+                    {(demoCreate || demoEdit || demoDelete) && (
+                      <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                        <strong>注意：</strong>操作示範會在目標系統上執行真實操作（新增/編輯/刪除資料）。建議在測試環境中使用，避免影響正式資料。
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit */}
+                  <div className="flex justify-center">
+                    <button
+                      type="submit"
+                      className="px-12 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all text-lg"
+                    >
+                      開始產生 SOP 文件
+                    </button>
+                  </div>
+                </form>
+
+                {/* How it works */}
+                <div className="mt-12 grid grid-cols-4 gap-6">
+                  {[
+                    { step: '1', title: '輸入網址', desc: '填入目標系統的 URL 和登入資訊' },
+                    { step: '2', title: '自動瀏覽', desc: '系統自動登入並瀏覽每一個功能頁面' },
+                    { step: '3', title: 'AI 分析', desc: 'Claude AI 分析截圖，辨識功能並撰寫說明' },
+                    { step: '4', title: '編輯匯出', desc: '線上編輯調整內容，匯出 PDF 文件' },
+                  ].map((item) => (
+                    <div key={item.step} className="bg-white rounded-xl p-6 shadow-sm text-center">
+                      <div className="w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mx-auto mb-3 font-bold">
+                        {item.step}
+                      </div>
+                      <h3 className="font-semibold text-slate-800">{item.title}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
+
+            {/* MANUAL mode — create blank document */}
+            {createMode === 'manual' && (
+              <>
+                <div className="bg-white rounded-xl shadow-sm p-8">
+                  <h2 className="text-xl font-semibold text-slate-800 mb-2">建立空白文件</h2>
+                  <p className="text-sm text-slate-500 mb-6">建立後進入編輯器，可自由新增區段、上傳截圖、編寫操作步驟</p>
+
+                  {error && (
+                    <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
+                  )}
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      文件標題
+                    </label>
+                    <input
+                      type="text"
+                      value={manualTitle}
+                      onChange={(e) => setManualTitle(e.target.value)}
+                      placeholder="例如：XX 系統操作說明"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                    />
+                    <p className="mt-1 text-sm text-slate-500">
+                      留空將使用「未命名文件」，可在編輯器中隨時修改
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <button
+                      onClick={async () => {
+                        setCreating(true);
+                        try {
+                          const res = await fetch('/api/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ title: manualTitle }),
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.taskId) {
+                            window.location.href = `/editor/${data.taskId}`;
+                          } else {
+                            setError(data.error || '建立失敗');
+                            setCreating(false);
+                          }
+                        } catch {
+                          setError('無法連線到伺服器');
+                          setCreating(false);
+                        }
+                      }}
+                      disabled={creating}
+                      className="px-12 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all text-lg disabled:opacity-50"
+                    >
+                      {creating ? '建立中...' : '建立文件'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* How it works — manual */}
+                <div className="mt-12 grid grid-cols-3 gap-6">
+                  {[
+                    { step: '1', title: '建立文件', desc: '輸入文件標題，建立一份空白 SOP 文件' },
+                    { step: '2', title: '編輯內容', desc: '新增區段、上傳截圖、編寫操作步驟與說明' },
+                    { step: '3', title: '設定匯出', desc: '調整配色、字體、封面資訊，匯出 PDF' },
+                  ].map((item) => (
+                    <div key={item.step} className="bg-white rounded-xl p-6 shadow-sm text-center">
+                      <div className="w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mx-auto mb-3 font-bold">
+                        {item.step}
+                      </div>
+                      <h3 className="font-semibold text-slate-800">{item.title}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* History */}
             {!loadingHistory && history.length > 0 && (

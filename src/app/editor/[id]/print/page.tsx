@@ -22,6 +22,14 @@ interface SOPSection {
   warnings: string[];
 }
 
+interface FontSizeConfig {
+  chapterTitle?: number;
+  sectionTitle?: number;
+  description?: number;
+  step?: number;
+  note?: number;
+}
+
 interface ThemeConfig {
   primaryColor: string;
   accentColor: string;
@@ -29,6 +37,7 @@ interface ThemeConfig {
   watermarkOpacity: number;
   watermarkType: 'text' | 'image';
   watermarkImage: string;
+  fontSize?: FontSizeConfig;
 }
 
 interface SOPDocument {
@@ -50,10 +59,25 @@ export default function PrintPage() {
   const [ready, setReady] = useState(false);
   const [cacheBust] = useState(() => Date.now());
 
-  // URL params override for colors; watermark comes from saved JSON
-  const primaryColor = searchParams.get('primary') || '#3b5998';
-  const accentColor = searchParams.get('accent') || '#1a1a2e';
-  const watermarkOpacity = parseFloat(searchParams.get('watermarkOpacity') || '0.06');
+  // Validate color values to prevent CSS injection (VULN-10)
+  const isValidColor = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v);
+
+  // Colors: saved theme is primary source; URL params override if explicitly provided
+  const urlPrimary = searchParams.get('primary');
+  const urlAccent = searchParams.get('accent');
+  const savedPrimary = doc?.theme?.primaryColor || '';
+  const savedAccent = doc?.theme?.accentColor || '';
+
+  // Priority: URL param (if valid) > saved theme (if valid) > default
+  const primaryColor = (urlPrimary && isValidColor(urlPrimary)) ? urlPrimary
+    : (savedPrimary && isValidColor(savedPrimary)) ? savedPrimary
+    : '#3b5998';
+  const accentColor = (urlAccent && isValidColor(urlAccent)) ? urlAccent
+    : (savedAccent && isValidColor(savedAccent)) ? savedAccent
+    : '#1a1a2e';
+
+  const rawOpacity = parseFloat(searchParams.get('watermarkOpacity') || '0.06');
+  const watermarkOpacity = isNaN(rawOpacity) ? 0.06 : Math.max(0.02, Math.min(0.3, rawOpacity));
 
   const autoPrint = searchParams.get('print') !== '0';
 
@@ -76,10 +100,20 @@ export default function PrintPage() {
   const themeData = doc.theme;
   const wmType = themeData?.watermarkType || 'text';
   const wmText = themeData?.watermark || '';
-  const wmImage = themeData?.watermarkImage || '';
+  // Only allow data:image/ URIs for watermark images (VULN-04)
+  const rawWmImage = themeData?.watermarkImage || '';
+  const wmImage = rawWmImage.startsWith('data:image/') ? rawWmImage : '';
   const wmOpacity = themeData?.watermarkOpacity ?? watermarkOpacity;
   const hasTextWatermark = wmType === 'text' && wmText;
   const hasImageWatermark = wmType === 'image' && wmImage;
+
+  // Font sizes
+  const fontSz = themeData?.fontSize || {};
+  const fsChapter = fontSz.chapterTitle || 22;
+  const fsSection = fontSz.sectionTitle || 18;
+  const fsDesc = fontSz.description || 14;
+  const fsStep = fontSz.step || 14;
+  const fsNote = fontSz.note || 13;
 
   // Cover config
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,27 +195,33 @@ export default function PrintPage() {
         .content-area { padding: 40px 60px; }
         .chapter-divider { margin-top: 50px; margin-bottom: 30px; page-break-before: always; }
         .chapter-divider:first-child { margin-top: 0; page-break-before: avoid; }
-        .chapter-divider h2 { font-size: 22px; color: ${accentColor}; border-bottom: 3px solid ${primaryColor}; padding-bottom: 8px; }
+        .chapter-divider h2 { font-size: ${fsChapter}px; color: ${accentColor}; border-bottom: 3px solid ${primaryColor}; padding-bottom: 8px; break-after: avoid; page-break-after: avoid; }
 
-        .content-section { margin-bottom: 40px; page-break-inside: avoid; }
-        .content-section h3 { font-size: 18px; font-weight: 700; color: #2c3e50; margin-bottom: 10px; }
-        .section-desc { color: #555; margin-bottom: 16px; font-size: 14px; }
-        .screenshot-wrapper { margin: 16px 0 20px; text-align: center; }
-        .screenshot-wrapper img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+        .content-section { margin-bottom: 40px; }
+        .content-section h3 { font-size: ${fsSection}px; font-weight: 700; color: #2c3e50; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
+        .section-desc { color: #555; margin-bottom: 16px; font-size: ${fsDesc}px; break-after: avoid; page-break-after: avoid; }
+        .screenshot-wrapper { margin: 16px 0 20px; text-align: center; page-break-inside: avoid; }
+        .screenshot-wrapper img { max-width: 100%; max-height: 500px; width: auto; height: auto; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; }
 
-        .step { display: flex; gap: 8px; margin: 10px 0; padding-left: 8px; }
+        .step { display: flex; gap: 8px; margin: 10px 0; padding-left: 8px; page-break-inside: avoid; }
         .step-letter { font-weight: 700; color: ${primaryColor}; min-width: 24px; flex-shrink: 0; }
-        .step-body { color: #333; font-size: 14px; line-height: 1.8; }
+        .step-body { color: #333; font-size: ${fsStep}px; line-height: 1.8; }
         .step-action { font-weight: 600; }
 
-        .note { color: #555; font-size: 13px; margin: 6px 0; padding-left: 8px; }
-        .warning { color: #b8860b; font-size: 13px; margin: 6px 0; padding: 8px 12px; background: #fff8e1; border-radius: 4px; border-left: 3px solid #f0ad4e; }
+        .note { color: #555; font-size: ${fsNote}px; margin: 6px 0; padding-left: 8px; page-break-inside: avoid; }
+        .warning { color: #b8860b; font-size: ${fsNote}px; margin: 6px 0; padding: 8px 12px; background: #fff8e1; border-radius: 4px; border-left: 3px solid #f0ad4e; page-break-inside: avoid; }
 
         .doc-footer { text-align: center; padding: 30px 60px; border-top: 1px solid #eee; color: #aaa; font-size: 12px; }
 
         @media print {
-          .screenshot-wrapper { page-break-inside: avoid; }
           .chapter-divider { page-break-before: always; }
+          .chapter-divider h2 { break-after: avoid; page-break-after: avoid; }
+          .content-section h3 { break-after: avoid; page-break-after: avoid; }
+          .section-desc { break-after: avoid; page-break-after: avoid; }
+          .screenshot-wrapper { page-break-inside: avoid; }
+          .step { page-break-inside: avoid; }
+          .note { page-break-inside: avoid; }
+          .warning { page-break-inside: avoid; }
           .no-print { display: none !important; }
         }
       `}</style>

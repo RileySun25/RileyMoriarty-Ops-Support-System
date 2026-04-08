@@ -40,6 +40,14 @@ interface CoverConfig {
   extraInfo: string;
 }
 
+interface FontSizeConfig {
+  chapterTitle: number;   // 章節標題 (default 22)
+  sectionTitle: number;   // 區段標題 (default 18)
+  description: number;    // 描述文字 (default 14)
+  step: number;           // 操作步驟 (default 14)
+  note: number;           // 提示/注意 (default 13)
+}
+
 interface ThemeConfig {
   primaryColor: string;
   accentColor: string;
@@ -48,6 +56,7 @@ interface ThemeConfig {
   watermarkType: 'text' | 'image';
   watermarkImage: string;
   cover: CoverConfig;
+  fontSize: FontSizeConfig;
 }
 
 interface CropState {
@@ -66,6 +75,14 @@ const DEFAULT_COVER: CoverConfig = {
   extraInfo: '',
 };
 
+const DEFAULT_FONT_SIZE: FontSizeConfig = {
+  chapterTitle: 22,
+  sectionTitle: 18,
+  description: 14,
+  step: 14,
+  note: 13,
+};
+
 const DEFAULT_THEME: ThemeConfig = {
   primaryColor: '#3b5998',
   accentColor: '#1a1a2e',
@@ -74,6 +91,7 @@ const DEFAULT_THEME: ThemeConfig = {
   watermarkType: 'text',
   watermarkImage: '',
   cover: { ...DEFAULT_COVER },
+  fontSize: { ...DEFAULT_FONT_SIZE },
 };
 
 const COLOR_PRESETS = [
@@ -214,7 +232,7 @@ export default function EditorPage() {
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState<ThemeConfig>(DEFAULT_THEME);
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'color' | 'watermark' | 'cover'>('color');
+  const [settingsTab, setSettingsTab] = useState<'color' | 'watermark' | 'cover' | 'fontsize'>('color');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -245,6 +263,7 @@ export default function EditorPage() {
             ...DEFAULT_THEME,
             ...data.theme,
             cover: { ...DEFAULT_COVER, ...data.theme?.cover },
+            fontSize: { ...DEFAULT_FONT_SIZE, ...data.theme?.fontSize },
           });
         }
         setLoading(false);
@@ -576,7 +595,7 @@ export default function EditorPage() {
             <div className="max-w-6xl mx-auto">
               {/* Tab buttons */}
               <div className="flex gap-1 mb-5 border-b border-slate-200">
-                {([['color', '配色方案'], ['watermark', '浮水印'], ['cover', '封面資訊']] as const).map(([key, label]) => (
+                {([['color', '配色方案'], ['watermark', '浮水印'], ['cover', '封面資訊'], ['fontsize', '字體大小']] as const).map(([key, label]) => (
                   <button key={key} onClick={() => setSettingsTab(key)}
                     className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${settingsTab === key ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
                     {label}
@@ -685,6 +704,40 @@ export default function EditorPage() {
                   </div>
                 </div>
               )}
+
+              {/* Font Size tab */}
+              {settingsTab === 'fontsize' && (
+                <div>
+                  <div className="grid grid-cols-5 gap-4 mb-4">
+                    {([
+                      ['chapterTitle', '章節標題', 22],
+                      ['sectionTitle', '區段標題', 18],
+                      ['description', '描述文字', 14],
+                      ['step', '操作步驟', 14],
+                      ['note', '提示/注意', 13],
+                    ] as [keyof FontSizeConfig, string, number][]).map(([key, label, defaultVal]) => (
+                      <div key={key}>
+                        <label className="block text-xs text-slate-500 mb-1">{label}</label>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setTheme({ ...theme, fontSize: { ...theme.fontSize, [key]: Math.max(8, theme.fontSize[key] - 1) } })}
+                            className="w-7 h-8 flex items-center justify-center border rounded-l-lg bg-white hover:bg-slate-50 text-slate-500 text-sm font-bold">−</button>
+                          <input type="number" min={8} max={48} value={theme.fontSize[key]}
+                            onChange={e => setTheme({ ...theme, fontSize: { ...theme.fontSize, [key]: Math.max(8, Math.min(48, parseInt(e.target.value) || defaultVal)) } })}
+                            className="w-12 h-8 text-center border-y text-sm font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                          <button onClick={() => setTheme({ ...theme, fontSize: { ...theme.fontSize, [key]: Math.min(48, theme.fontSize[key] + 1) } })}
+                            className="w-7 h-8 flex items-center justify-center border rounded-r-lg bg-white hover:bg-slate-50 text-slate-500 text-sm font-bold">+</button>
+                          <span className="text-xs text-slate-400 ml-1">px</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">預設 {defaultVal}px</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setTheme({ ...theme, fontSize: { ...DEFAULT_FONT_SIZE } })}
+                    className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
+                    重設為預設值
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -742,7 +795,7 @@ export default function EditorPage() {
                     </div>
                   )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imgSrc(ssPath)} alt={`${section.title} - ${imgIdx + 1}`} className="w-full"
+                  <img src={imgSrc(ssPath)} alt={`${section.title} - ${imgIdx + 1}`} className="w-full" style={{ maxHeight: '500px', objectFit: 'contain' }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center gap-3">
                     <button onClick={() => openCrop(sIdx, imgIdx)}

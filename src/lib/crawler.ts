@@ -1,6 +1,8 @@
 import { chromium, Browser, Page, BrowserContext } from 'playwright';
 import { GenerateRequest, PageCapture, PageElement } from './types';
 import { updateTask, addPageCapture } from './task-manager';
+import { demonstrateOperations } from './operation-agent';
+import { isUrlSafe } from './validation';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -125,9 +127,11 @@ export async function crawlWebsite(taskId: string, request: GenerateRequest): Pr
     browser = await chromium.launch({
       headless: !needsVisibleBrowser,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled',
+        '--disable-features=PasswordLeakDetection,HttpsUpgrades',
+        '--no-default-browser-check',
+        '--disable-infobars',
+        '--disable-gpu',
       ],
     });
 
@@ -194,6 +198,14 @@ export async function crawlWebsite(taskId: string, request: GenerateRequest): Pr
     updateTask(taskId, { status: 'crawling', currentStep: '開始探索網站頁面...', progress: 15 });
     const maxPages = request.maxPages || MAX_PAGES;
     const captures = await discoverAndCapture(taskId, page, context, request.url, maxPages, taskScreenshotDir);
+
+    // 4. Operation demonstration (if enabled)
+    const demoOps = request.demoOperations;
+    if (demoOps && (demoOps.create || demoOps.edit || demoOps.delete)) {
+      updateTask(taskId, { currentStep: '正在偵測���示範的操作流程...', progress: 46 });
+      const demoCaptures = await demonstrateOperations(taskId, page, captures, demoOps, taskScreenshotDir);
+      captures.push(...demoCaptures);
+    }
 
     updateTask(taskId, {
       currentStep: `已完成 ${captures.length} 個頁面的擷取`,
@@ -470,11 +482,23 @@ async function discoverAndCapture(
         processedPages: captures.length,
       });
 
+      // Validate URL before visiting (SSRF prevention)
+      if (!isUrlSafe(url, baseOrigin)) {
+        console.warn('Skipping unsafe URL:', url);
+        continue;
+      }
+
       await safeGoto(page, url, 30000);
 
       // Check if redirected to login (session expired)
       if (isOnLoginPage(page.url())) {
         console.warn('Redirected to login, skipping:', url);
+        continue;
+      }
+
+      // Verify we weren't redirected to a different origin
+      if (!isUrlSafe(page.url(), baseOrigin) && !isOnLoginPage(page.url())) {
+        console.warn('Redirected to external URL, skipping:', page.url());
         continue;
       }
 

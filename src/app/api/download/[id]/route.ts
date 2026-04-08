@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
+import { validateTaskId, safePath as resolveSecurePath } from '@/lib/validation';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: taskId } = await params;
+
+  if (!validateTaskId(taskId)) {
+    return NextResponse.json({ error: 'Invalid task ID' }, { status: 400 });
+  }
+
   const format = req.nextUrl.searchParams.get('format') || 'html';
   const outputDir = path.join(process.cwd(), 'output', taskId);
 
@@ -47,10 +53,9 @@ export async function GET(
     if (!imgPath) {
       return NextResponse.json({ error: '未指定圖片路徑' }, { status: 400 });
     }
-    // Prevent path traversal
-    const safePath = path.normalize(imgPath).replace(/^(\.\.[/\\])+/, '');
-    const fullPath = path.join(outputDir, safePath);
-    if (!fullPath.startsWith(outputDir) || !fs.existsSync(fullPath)) {
+    // Secure path resolution — prevents path traversal
+    const fullPath = resolveSecurePath(outputDir, imgPath);
+    if (!fullPath || !fs.existsSync(fullPath)) {
       return NextResponse.json({ error: '找不到圖片' }, { status: 404 });
     }
     const imageData = fs.readFileSync(fullPath);

@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
+import { validateTaskId } from '@/lib/validation';
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  if (!validateTaskId(id)) {
+    return NextResponse.json({ error: 'Invalid task ID' }, { status: 400 });
+  }
+
   const outputDir = path.join(process.cwd(), 'output', id);
 
   if (!fs.existsSync(outputDir)) {

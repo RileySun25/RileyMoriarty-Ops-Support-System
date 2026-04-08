@@ -1,21 +1,3 @@
-### 寫在最前面
-
-會有這個工具系統化的起點，主要是今年迎來升職，但職務內容也隨之增加，但在補足人力之前目前部門人少，我受夠了製作流程SOP或是各項產品說明、教學手冊，都要截圖複製來複製去。
-即便AI工具很發達，但必須承認的是在製作教學文件或是流程說明文件這種東西，很仰賴的是初次的版本。通常都需要有初版，才能再利用AI工具讓他優化變更美或是排版升級。
-但真心話是製作第一版的流程教學說明真的很麻煩xd 你要截圖、把圖複製到文件上，再寫上說明，這繁瑣的流程，我相信沒有一個人想做第二次。
-
-所以從登入系統、截圖、瀏覽網頁、產生文件、彈性的客製化設定，整個流程都讓AI幫你做第一次，
-有了第一版之後，就方便許多可以直接調整，可以裁切截圖、可以新增描述等等。
-在我的工作上對我製作這些檔案節省了很多時間，也美化許多。
-
-本來是在地端運行而已，但今天剛好與朋友去寫論文，
-跟朋友分享了我開發的工具，朋友驚呼也太方便xd
-所以我就回來請Claude Code幫我整理一份適合公開的版本做成開源工具。
-希望可以協助到那些也跟我一樣懶得做產品說明、系統教學文件的人哈哈哈哈哈哈哈哈
-
-另外，這工具的起點還有後續的優化，全部想法都是來自我，
-但所有的開發、前端後端、還有推上git甚至是寫這份說明readme的都是Claude Code跟我協作的，感謝它。
-
 # RileyMoriarty Ops Support System
 
 > Self-hosted, AI-powered SOP document generator. Automatically browse any web application, capture screenshots, and produce professional operation manuals — all running locally on your machine.
@@ -36,21 +18,36 @@
 4. You get a professional HTML document with cover page, table of contents, numbered chapters, annotated screenshots, and operation steps
 5. Edit everything in a built-in editor, then export to PDF
 
+**Or create documents manually** — start with a blank document, add sections, upload your own screenshots, and write steps by hand using the full-featured editor.
+
 **Everything runs locally.** No files leave your machine (except the Claude API calls for screenshot analysis). No SaaS. No cloud storage. Your documents stay yours.
 
 ## Features
 
+### Core
 - **Automated Crawling** — Playwright Chromium auto-login (credentials / Google OAuth / manual), BFS page discovery up to 3 levels deep
 - **AI Analysis** — Claude Vision analyzes each screenshot, generating structured steps with UI element references
-- **Built-in Editor** — Edit all text, reorder sections & steps, crop/replace screenshots, add new blank sections
-- **Multi-Image Support** — Each section supports multiple screenshots (before/after comparisons, multi-step flows), individually croppable and removable
-- **Reorder Manager** — Dedicated reorder modal with drag-and-drop, up/down, move-to-top/bottom for efficient bulk reordering
-- **Theme Customization** — 6 color presets + custom colors, text or image watermarks with adjustable opacity
-- **Cover Page Config** — Document name, subtitle, author, department, version — all customizable
-- **PDF Export** — One-click print-to-PDF with clean A4 layout, page breaks, and watermarks
+- **Manual Creation** — Create blank documents and build SOP content manually with the editor
+- **Built-in Editor** — Edit all text, reorder sections & steps, crop/replace/upload screenshots, drag-and-drop
+
+### Customization
+- **Theme Colors** — 6 color presets + custom primary/accent colors
+- **Watermarks** — Text or image watermarks with adjustable opacity (2%–30%)
+- **Cover Page** — Document name, subtitle, author, department, version
+- **Font Sizes** — Customize chapter title, section title, description, step, and note font sizes (8–48px)
+- **Multi-Image Sections** — Multiple screenshots per section with individual crop/remove/add
+
+### Output
+- **PDF Export** — A4 layout with smart page breaks (titles always stay with content), watermarks, and custom themes
+- **Smart Pagination** — Headings never orphaned at page bottom; automatic page breaks keep titles with their content
 - **History Management** — Browse, edit, or delete previously generated documents
 - **Real-time Progress** — SSE live updates with 3-layer reconnection fallback
-- **Fully Local** — Self-hosted, no external file transfers, data stays on your machine
+
+### Security
+- **Input Validation** — Task ID whitelist, path traversal prevention, CSS injection protection
+- **XSS Prevention** — Stored and reflected XSS protection across all outputs
+- **SSRF Protection** — URL allowlist blocks private IPs and non-HTTP protocols
+- **Chromium Sandbox** — Browser automation runs with full sandbox enabled
 
 ## Quick Start
 
@@ -91,12 +88,22 @@ npm start
 
 ## Usage
 
+### AI Auto-Scan Mode
 1. **Enter target URL** on the home page
 2. **Choose login method** — None / Username-Password / Google OAuth / Manual login
 3. **Set max pages** (default: 50)
 4. **Click "Start"** — watch real-time progress as the system crawls and analyzes
-5. **Edit** — click "Edit" to open the built-in editor, adjust text, reorder sections, crop images
+5. **Edit** — click "Edit" to open the built-in editor
 6. **Export** — click "Export PDF" to generate a print-ready A4 document
+
+### Manual Creation Mode
+1. **Select "Manual Creation"** on the home page
+2. **Enter document title** and click "Create"
+3. **Add sections** — use "+ Add Section" button
+4. **Upload screenshots** — click on image area or "Replace Image"
+5. **Write steps** — add A/B/C structured operation steps
+6. **Customize** — set theme colors, watermarks, cover info, font sizes
+7. **Export PDF**
 
 ### Login Modes
 
@@ -140,6 +147,36 @@ User → [Next.js Frontend] → [POST /api/generate] → Background Pipeline
                   [/editor/:id] → Edit → Save → Export PDF
 ```
 
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── page.tsx                    # Home page (AI scan / manual creation)
+│   ├── guide/page.tsx              # Usage guide
+│   ├── editor/[id]/
+│   │   ├── page.tsx                # Document editor
+│   │   └── print/page.tsx          # Print/PDF preview page
+│   └── api/
+│       ├── generate/route.ts       # Start AI crawl pipeline
+│       ├── create/route.ts         # Create blank document
+│       ├── status/[id]/route.ts    # SSE progress stream
+│       ├── save/[id]/route.ts      # Save edits (JSON + regenerate HTML)
+│       ├── download/[id]/route.ts  # Serve generated files
+│       ├── crop/[id]/route.ts      # Save cropped/uploaded images
+│       ├── history/route.ts        # List all documents
+│       └── history/[id]/route.ts   # Delete a document
+└── lib/
+    ├── types.ts                    # TypeScript interfaces
+    ├── task-manager.ts             # In-memory task state + SSE
+    ├── orchestrator.ts             # 3-phase pipeline coordinator
+    ├── crawler.ts                  # Playwright browser automation
+    ├── ai-analyzer.ts              # Claude Vision API integration
+    ├── doc-generator.ts            # HTML document generator
+    ├── validation.ts               # Security: input validation, path traversal, XSS, SSRF
+    └── operation-agent.ts          # Experimental: AI operation demo agent
+```
+
 ## Output Structure
 
 ```
@@ -169,21 +206,36 @@ MIT
 4. 產生包含封面、目錄、編號章節、標註截圖、操作步驟的專業 HTML 文件
 5. 在內建編輯器中調整所有內容，然後匯出 PDF
 
+**也可以手動建立文件** — 從空白文件開始，新增區段、上傳截圖、撰寫步驟，使用完整的編輯器功能。
+
 **完全本地執行。** 除了 Claude API 分析截圖外，所有檔案都不會離開你的電腦。沒有 SaaS、沒有雲端儲存，文件完全屬於你。
 
 ### 功能特色
 
+#### 核心功能
 - **自動爬取** — Playwright Chromium 自動登入（帳密 / Google OAuth / 手動），BFS 探索最深 3 層
 - **AI 分析** — Claude Vision 分析每張截圖，產生結構化步驟與 UI 元素標註
-- **內建編輯器** — 編輯所有文字、排序區段與步驟、裁切/更換截圖、新增空白區段
-- **多圖片支援** — 每個區段支援多張截圖（前後對比、多步驟流程），可個別裁切與移除
-- **排序管理** — 獨立排序彈窗，支援拖曳、上下移動、置頂/置底，大量區段也能輕鬆調整
-- **主題自訂** — 6 組預設配色 + 自訂色彩，文字或圖片浮水印，透明度可調
-- **封面設定** — 文件名稱、副標題、製作人、部門、版本號，全部可自訂
-- **PDF 匯出** — 一鍵匯出 A4 格式 PDF，含分頁、浮水印
+- **手動建立** — 建立空白文件，手動新增區段、上傳截圖、撰寫步驟
+- **內建編輯器** — 編輯所有文字、排序區段與步驟、裁切/更換/上傳截圖、拖拉排序
+
+#### 自訂設定
+- **主題配色** — 6 組預設配色 + 自訂主色/強調色
+- **浮水印** — 文字或圖片浮水印，透明度可調（2%–30%）
+- **封面設定** — 文件名稱、副標題、製作人、部門、版本號
+- **字體大小** — 章節標題、區段標題、描述、步驟、提示字級可調（8–48px）
+- **多圖片區段** — 每個區段支援多張截圖，可個別裁切/移除/新增
+
+#### 輸出
+- **PDF 匯出** — A4 格式，智慧分頁（標題一定跟內容同頁）、浮水印、自訂主題
+- **智慧分頁** — 標題不會孤立在頁尾，自動換頁保持標題與內容一起
 - **歷史管理** — 瀏覽、編輯或刪除已產生的文件
 - **即時進度** — SSE 即時推送，三層斷線重連機制
-- **完全本地** — 自架部署，無外部檔案傳輸，資料留在你的電腦
+
+#### 安全性
+- **輸入驗證** — Task ID 白名單、路徑穿越防護、CSS 注入防護
+- **XSS 防護** — 所有輸出的 Stored XSS 和 Reflected XSS 防護
+- **SSRF 防護** — URL 允許清單阻擋內網 IP 和非 HTTP 協議
+- **Chromium 沙箱** — 瀏覽器自動化啟用完整沙箱
 
 ### 快速開始
 
@@ -208,21 +260,22 @@ npm run dev
 
 開啟瀏覽器前往 [http://localhost:3000](http://localhost:3000)
 
-### 正式部署
-
-```bash
-npm run build
-npm start
-```
-
 ### 使用方式
 
+#### AI 自動掃描模式
 1. 在首頁輸入目標網站的 URL
 2. 選擇登入方式（不需登入 / 帳號密碼 / Google OAuth / 手動登入）
 3. 設定最大頁面數
 4. 點擊「開始產生」，即時觀看進度
-5. 完成後點擊「編輯」進入編輯器，調整文字、順序、截圖
+5. 完成後點擊「編輯」進入編輯器
 6. 點擊「匯出 PDF」產生 A4 格式 PDF
+
+#### 手動建立模式
+1. 在首頁選擇「手動建立文件」
+2. 輸入文件標題後點擊「建立」
+3. 使用「+ 新增區段」新增內容
+4. 上傳截圖、撰寫步驟、設定主題
+5. 匯出 PDF
 
 ## License
 
